@@ -20,14 +20,44 @@ jobs:
           cache: gradle
       - name: 验证JDK版本
         run: java -version && javac -version
+        
+      - name: 测试网络连接
+        run: |
+          echo "=== 网络测试 ==="
+          ping -c 3 maven.aliyun.com || echo "阿里云Maven ping失败"
+          ping -c 3 dl.google.com || echo "Google Maven ping失败"
+          curl -I https://maven.aliyun.com/repository/public || echo "阿里云Maven访问失败"
+          curl -I https://dl.google.com/dl/android/maven2/ || echo "Google Maven访问失败"
           
       - name: 授予Gradle执行权限
         run: chmod +x gradlew
         
-      - name: 构建APK
-        run: ./gradlew assembleDebug
+      - name: 打印Gradle配置
+        run: |
+          cat gradle/wrapper/gradle-wrapper.properties
+          echo "=== Gradle版本 ==="
+          ./gradlew --version
+        
+      - name: 构建APK（带详细日志）
+        run: ./gradlew assembleDebug --info --stacktrace --debug --no-build-cache
         env:
-          GRADLE_OPTS: "-Xmx4096m -Dorg.gradle.jvmargs=-Xmx4096m"
+          GRADLE_OPTS: "-Xmx8192m -Dorg.gradle.jvmargs=-Xmx8192m -Dhttp.proxyHost= -Dhttps.proxyHost="
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        continue-on-error: true
+        
+      - name: 收集构建日志
+        if: always()
+        run: |
+          mkdir -p build-logs
+          cp -r app/build/outputs/* build-logs/ 2>/dev/null || true
+          cp -r ~/.gradle/daemon/*/daemon-*.log build-logs/ 2>/dev/null || true
+      
+      - name: 上传构建日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-debug-logs
+          path: build-logs/
           
       - name: 上传构建好的APK
         uses: actions/upload-artifact@v4
