@@ -21,13 +21,25 @@ jobs:
       - name: 验证JDK版本
         run: java -version && javac -version
         
-      - name: 测试网络连接
+      - name: 配置国内镜像源，解决依赖下载问题
         run: |
-          echo "=== 网络测试 ==="
-          ping -c 3 maven.aliyun.com || echo "阿里云Maven ping失败"
-          ping -c 3 dl.google.com || echo "Google Maven ping失败"
-          curl -I https://maven.aliyun.com/repository/public || echo "阿里云Maven访问失败"
-          curl -I https://dl.google.com/dl/android/maven2/ || echo "Google Maven访问失败"
+          echo "=== 配置Gradle国内镜像 ==="
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle << 'EOF'
+          allprojects {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/public/' }
+                  maven { url 'https://maven.aliyun.com/repository/google/' }
+                  maven { url 'https://maven.aliyun.com/repository/gradle-plugin/' }
+                  maven { url 'https://maven.aliyun.com/repository/central/' }
+                  maven { url 'https://mirrors.cloud.tencent.com/gradle/' }
+                  maven { url 'https://artifact.bytedance.com/repository/Volcengine/' }
+              }
+          }
+          EOF
+          
+          echo "=== 配置Gradle Wrapper国内镜像 ==="
+          sed -i 's#https\://services.gradle.org/distributions#https\://mirrors.cloud.tencent.com/gradle#g' gradle/wrapper/gradle-wrapper.properties
           
       - name: 授予Gradle执行权限
         run: chmod +x gradlew
@@ -38,12 +50,12 @@ jobs:
           echo "=== Gradle版本 ==="
           ./gradlew --version
         
-      - name: 构建APK（带详细日志）
-        run: ./gradlew assembleDebug --info --stacktrace --debug --no-build-cache
+      - name: 构建APK（优化版）
+        run: ./gradlew assembleDebug --build-cache --no-daemon --stacktrace
         env:
-          GRADLE_OPTS: "-Xmx8192m -Dorg.gradle.jvmargs=-Xmx8192m -Dhttp.proxyHost= -Dhttps.proxyHost="
+          GRADLE_OPTS: "-Xmx8192m -Dorg.gradle.jvmargs=-Xmx8192m -Dfile.encoding=UTF-8"
           ANDROID_HOME: /usr/local/lib/android/sdk
-        continue-on-error: true
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         
       - name: 收集构建日志
         if: always()
