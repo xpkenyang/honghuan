@@ -18,6 +18,8 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: gradle
+      - name: 验证JDK版本
+        run: java -version && javac -version
           
       - name: 授予Gradle执行权限
         run: chmod +x gradlew
