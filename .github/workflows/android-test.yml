@@ -1,0 +1,63 @@
+name: Android 自动化测试
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 设置JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+          
+      - name: 授予Gradle执行权限
+        run: chmod +x gradlew
+        
+      - name: 构建APK
+        run: ./gradlew assembleDebug
+        env:
+          GRADLE_OPTS: "-Xmx4096m -Dorg.gradle.jvmargs=-Xmx4096m"
+          
+      - name: 上传构建好的APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: honghuang-guard-apk
+          path: app/build/outputs/apk/debug/*.apk
+          
+      - name: 运行静态代码检查
+        run: ./gradlew lintDebug
+        
+      - name: 启动Android模拟器并运行测试
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_7
+          sdcard-path-or-size: 2048M
+          avd-name: HongHuangTest
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb install app/build/outputs/apk/debug/honghuang-guard-*.apk
+            adb shell am start -n com.honghuang.guard/.MainActivity
+            sleep 30
+            adb logcat -d | grep "HongHuangMain" > app-start-log.txt
+            echo "APP启动测试完成"
+            
+      - name: 上传测试日志
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            app/build/reports/
+            app-start-log.txt

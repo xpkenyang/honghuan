@@ -1,0 +1,218 @@
+package com.honghuang.guard;
+
+import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+
+import com.volcengine.irtc.IRtcEngine;
+import com.volcengine.irtc.IRtcEngineEventHandler;
+import com.volcengine.irtc.UserInfo;
+import com.volcengine.irtc.VideoCanvas;
+import com.volcengine.irtc.bean.AudioFrameInfo;
+import com.volcengine.irtc.bean.ChannelProfile;
+import com.volcengine.irtc.bean.VideoEncoderConfig;
+import com.volcengine.irtc.bean.VideoPixelFormat;
+import com.volcengine.irtc.bean.VideoStreamType;
+
+import java.nio.ByteBuffer;
+
+/**
+ * RTC引擎管理器
+ * 负责管理火山引擎RTC的音视频通话功能
+ */
+public class RtcEngineManager {
+    
+    private static final String TAG = "RtcEngineManager";
+    
+    private IRtcEngine rtcEngine;
+    private Context context;
+    private RtcEventListener listener;
+    
+    // 音频参数
+    private static final int AUDIO_SAMPLE_RATE = 48000;  // 48kHz
+    private static final int AUDIO_CHANNELS = 1;          // 单声道
+    private static final int AUDIO_BITRATE = 48000;       // 48kbps
+    
+    public interface RtcEventListener {
+        void onJoinRoomSuccess(String roomId);
+        void onJoinRoomError(int errorCode, String errorMessage);
+        void onRemoteUserJoined(String uid);
+        void onRemoteUserLeft(String uid);
+        void onAudioDataReceived(byte[] audioData);
+        void onConnectionStateChanged(int state);
+    }
+    
+    public RtcEngineManager(Context context) {
+        this.context = context.getApplicationContext();
+        initRtcEngine();
+    }
+    
+    public void setListener(RtcEventListener listener) {
+        this.listener = listener;
+    }
+    
+    /**
+     * 初始化RTC引擎
+     */
+    private void initRtcEngine() {
+        try {
+            rtcEngine = IRtcEngine.create(context, "", new IRtcEngineEventHandler() {
+                @Override
+                public void onWarning(int warn, String warningMessage) {
+                    Log.w(TAG, "RTC警告: " + warn + " - " + warningMessage);
+                }
+                
+                @Override
+                public void onError(int err, String errorMessage) {
+                    Log.e(TAG, "RTC错误: " + err + " - " + errorMessage);
+                    if (listener != null) {
+                        listener.onJoinRoomError(err, errorMessage);
+                    }
+                }
+                
+                @Override
+                public void onJoinChannelSuccess(String c, String uid, int elapsed) {
+                    Log.i(TAG, "加入房间成功: " + c + ", uid: " + uid);
+                    if (listener != null) {
+                        listener.onJoinRoomSuccess(c);
+                    }
+                }
+                
+                @Override
+                public void onUserJoined(String uid, int elapsed) {
+                    Log.i(TAG, "远程用户加入: " + uid);
+                    if (listener != null) {
+                        listener.onRemoteUserJoined(uid);
+                    }
+                }
+                
+                @Override
+                public void onUserOffline(String uid, int reason) {
+                    Log.i(TAG, "远程用户离开: " + uid + ", reason: " + reason);
+                    if (listener != null) {
+                        listener.onRemoteUserLeft(uid);
+                    }
+                }
+                
+                @Override
+                public void onConnectionStateChanged(int state, int reason) {
+                    Log.i(TAG, "连接状态变化: " + state + ", reason: " + reason);
+                    if (listener != null) {
+                        listener.onConnectionStateChanged(state);
+                    }
+                }
+            });
+            
+            // 设置频道模式为直播模式
+            rtcEngine.setChannelProfile(ChannelProfile.CHANNEL_PROFILE_LIVE_BROADCASTING);
+            
+            // 启用音频模块
+            rtcEngine.enableAudio();
+            
+            // 启用音频录制
+            rtcEngine.startAudioRecording(
+                    AUDIO_SAMPLE_RATE,
+                    AUDIO_CHANNELS,
+                    AUDIO_BITRATE
+            );
+            
+            Log.i(TAG, "RTC引擎初始化成功");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "RTC引擎初始化失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 加入RTC房间
+     * @param roomId 房间ID
+     * @param uid 用户ID
+     * @param token 认证Token
+     */
+    public void joinRoom(String roomId, String uid, String token) {
+        if (rtcEngine == null) {
+            Log.e(TAG, "RTC引擎未初始化");
+            return;
+        }
+        
+        try {
+            // 设置用户角色为主播
+            rtcEngine.setClientRole(1);  // 1 = BROADCASTER
+            
+            // 加入房间
+            int result = rtcEngine.joinChannel(token, roomId, uid);
+            
+            if (result != 0) {
+                Log.e(TAG, "加入房间失败: " + result);
+                if (listener != null) {
+                    listener.onJoinRoomError(result, "加入房间失败，错误码: " + result);
+                }
+            }
+            
+            Log.i(TAG, "正在加入房间: " + roomId);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "加入房间异常: " + e.getMessage());
+            if (listener != null) {
+                listener.onJoinRoomError(-1, "加入房间异常: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * 离开房间
+     */
+    public void leaveRoom() {
+        if (rtcEngine != null) {
+            rtcEngine.leaveChannel();
+            Log.i(TAG, "已离开房间");
+        }
+    }
+    
+    /**
+     * 发送音频数据
+     * @param audioData 音频数据
+     */
+    public void sendAudioData(byte[] audioData) {
+        if (rtcEngine == null) {
+            Log.e(TAG, "RTC引擎未初始化");
+            return;
+        }
+        
+        try {
+            // 使用pushExternalAudioFrame发送外部音频帧
+            AudioFrameInfo frameInfo = new AudioFrameInfo();
+            frameInfo.sampleRate = AUDIO_SAMPLE_RATE;
+            frameInfo.channels = AUDIO_CHANNELS;
+            frameInfo.bitsPerSample = 16;
+            frameInfo.samples = audioData.length / (AUDIO_CHANNELS * 2); // 16-bit = 2 bytes per sample
+            
+            rtcEngine.pushExternalAudioFrame(ByteBuffer.wrap(audioData), frameInfo);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "发送音频数据失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 静音/取消静音本地音频
+     * @param muted true=静音，false=取消静音
+     */
+    public void muteLocalAudio(boolean muted) {
+        if (rtcEngine != null) {
+            rtcEngine.muteLocalAudioStream(muted);
+        }
+    }
+    
+    /**
+     * 销毁RTC引擎
+     */
+    public void destroy() {
+        if (rtcEngine != null) {
+            rtcEngine.destroy();
+            rtcEngine = null;
+            Log.i(TAG, "RTC引擎已销毁");
+        }
+    }
+}

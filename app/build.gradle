@@ -1,0 +1,97 @@
+plugins {
+    id 'com.android.application' version '8.2.0'
+}
+
+android {
+    namespace 'com.honghuang.guard'
+    compileSdk 34
+    buildToolsVersion "34.0.0"
+
+    defaultConfig {
+        applicationId = "com.honghuang.guard"
+        minSdk 26
+        targetSdk 34
+        versionCode 38
+        versionName "1.2.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // 支持所有主流CPU架构
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 自定义 APK 输出文件名，包含版本号
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            def versionName = variant.versionName
+            def buildType = variant.buildType.name
+            output.outputFileName = "honghuang-guard-${versionName}-${buildType}.apk"
+        }
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+    
+    packaging {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += 'META-INF/androidx.*.version'
+        }
+    }
+}
+
+// 强制所有依赖使用统一版本
+configurations.all {
+    resolutionStrategy {
+        // AndroidX
+        force 'androidx.core:core:1.9.0'
+        force 'androidx.core:core-ktx:1.9.0'
+        force 'androidx.appcompat:appcompat:1.6.1'
+        force 'androidx.constraintlayout:constraintlayout:2.1.4'
+        force 'androidx.versionedparcelable:versionedparcelable:1.1.1'
+        force 'androidx.cursorable:cursorable:1.0.0'
+        
+        // Kotlin
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.10'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.10'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.10'
+        
+        // 排除旧版 Support 库
+        exclude group: 'com.android.support', module: 'support-compat'
+        exclude group: 'com.android.support', module: 'support-v4'
+        exclude group: 'com.android.support', module: 'appcompat-v7'
+        exclude group: 'com.android.support', module: 'support-vector-drawable'
+        exclude group: 'com.android.support', module: 'animated-vector-drawable'
+        exclude group: 'com.android.support', module: 'versionedparcelable'
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.lifecycle:lifecycle-runtime:2.6.1'
+    implementation 'androidx.activity:activity:1.7.2'
+    
+    // VolcEngineRTC - 排除旧版 Support 库依赖
+    implementation('com.volcengine:VolcEngineRTC:3.58.1.19400') {
+        exclude group: 'com.android.support'
+    }
+    implementation 'com.coze:coze-api:0.4.1'
+    
+    implementation 'com.google.code.gson:gson:2.8.9'
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+}
