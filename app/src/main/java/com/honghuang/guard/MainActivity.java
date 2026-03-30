@@ -61,8 +61,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d(TAG, "=== 洪荒守护 v1.4.0 启动 ===");
-        Log.d(TAG, "语音交互版本，支持实时语音收发");
+        Log.d(TAG, "=== 洪荒守护 v1.6.1 启动 ===");
+        Log.d(TAG, "[APPROVE:1002] RTC直接对接OpenClaw，实时语音交互");
         
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -71,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
             initViews();
             initManagers();
             checkAndRequestPermissions();
-            updateStatus("应用启动成功 - v1.5.0 全双工通话版");
+            updateStatus("应用启动成功 - v1.6.1 RTC对接OpenClaw版");
             Log.d(TAG, "初始化完成");
         } catch (Exception e) {
             Log.e(TAG, "初始化失败", e);

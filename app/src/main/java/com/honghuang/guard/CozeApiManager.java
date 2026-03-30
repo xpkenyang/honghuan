@@ -193,24 +193,90 @@ public class CozeApiManager {
     }
     
     /**
-     * 发送聊天消息到扣子智能体
-     * 临时通版本：先返回模拟回复，后续对接正式对话接口
+     * 发送聊天消息到OpenClaw
+     * v1.6.1修复：[APPROVE:1002] 直接调用OpenClaw API，不再使用模拟回复
      */
     public void sendChatMessage(String message) {
-        Log.i(TAG, "发送聊天消息: " + message);
+        Log.i(TAG, "发送聊天消息到OpenClaw: " + message);
         
-        // 临时模拟回复，先让功能跑通
-        String reply = "🐉 洪荒收到！你说的是：" + message + "\n\n我现在已经可以正常回复你啦！后续我会对接正式的智能体接口，实现更智能的对话功能~";
+        // v1.6.1: 调用OpenClaw API获取真实回复
+        callOpenClawAPI(message);
+    }
+    
+    /**
+     * 调用OpenClaw API获取回复
+     * v1.6.1新增：直接对接OpenClaw
+     */
+    private void callOpenClawAPI(String message) {
+        // OpenClaw API配置
+        String openclawUrl = "https://api.openclaw.ai/v1/chat";
+        String openclawKey = "HONGHUANGSAFECODE";
         
-        // 延迟1秒返回，模拟真实网络请求
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+        JSONObject requestBody = new JSONObject();
+        try {
+            requestBody.put("message", message);
+            requestBody.put("session_id", "rtc_session_" + System.currentTimeMillis());
+            requestBody.put("context", "实时语音对话");
+        } catch (JSONException e) {
+            Log.e(TAG, "构建OpenClaw请求失败", e);
+            if (listener != null) {
+                listener.onError("请求构建失败: " + e.getMessage());
+            }
+            return;
+        }
+        
+        RequestBody body = RequestBody.create(
+                requestBody.toString(),
+                MediaType.parse("application/json; charset=utf-8")
+        );
+        
+        Request request = new Request.Builder()
+                .url(openclawUrl)
+                .addHeader("X-OpenClaw-Key", openclawKey)
+                .addHeader("Content-Type", "application/json")
+                .post(body)
+                .build();
+        
+        httpClient.newCall(request).enqueue(new Callback() {
             @Override
-            public void run() {
+            public void onFailure(Call call, IOException e) {
+                Log.e(TAG, "OpenClaw API调用失败", e);
+                // 如果OpenClaw不可用，返回提示信息
                 if (listener != null) {
-                    listener.onChatSuccess(reply);
+                    String errorMsg = "OpenClaw连接失败: " + e.getMessage() + 
+                            "\n请确保OpenClaw服务已启动";
+                    listener.onChatSuccess("🐉 洪荒: " + errorMsg);
                 }
             }
-        }, 1000);
+            
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                try {
+                    if (response.isSuccessful()) {
+                        String responseBody = response.body().string();
+                        try {
+                            JSONObject jsonResponse = new JSONObject(responseBody);
+                            String reply = jsonResponse.optString("reply", "洪荒收到，但回复为空");
+                            if (listener != null) {
+                                listener.onChatSuccess("🐉 洪荒: " + reply);
+                            }
+                        } catch (JSONException e) {
+                            Log.e(TAG, "解析OpenClaw响应失败", e);
+                            if (listener != null) {
+                                listener.onChatSuccess("🐉 洪荒: 收到消息，但解析响应失败");
+                            }
+                        }
+                    } else {
+                        Log.e(TAG, "OpenClaw API返回错误: " + response.code());
+                        if (listener != null) {
+                            listener.onChatSuccess("🐉 洪荒: 服务暂时不可用 (" + response.code() + ")");
+                        }
+                    }
+                } finally {
+                    response.close();
+                }
+            }
+        });
     }
     
     /**

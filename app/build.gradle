@@ -67,8 +67,8 @@ android {
         applicationId = "com.honghuang.guard"
         minSdk 26
         targetSdk 34
-        versionCode 45
-        versionName "1.6.0-正式版"
+        versionCode 46
+        versionName "1.6.1-紧急修复版"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // v1.2.3：只保留64位arm架构，覆盖99%主流机型，减少兼容性问题
