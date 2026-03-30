@@ -148,7 +148,7 @@ public class VoiceWakeManager {
         // 或使用火山引擎提供的特征提取API
         
         // 临时返回简化特征
-        return new float[]{calculateEnergy(audioData)};
+        return new float[]{(float) calculateEnergy(audioData)};
     }
     
     /**

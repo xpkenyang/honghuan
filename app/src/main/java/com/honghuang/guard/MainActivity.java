@@ -62,8 +62,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d(TAG, "=== 洪荒守护 v1.6.5 启动 ===");
-        Log.d(TAG, "[APPROVE:1005] 语音唤醒版，支持关键词唤醒");
+        Log.d(TAG, "=== 洪荒守护 v1.6.6 启动 ===");
+        Log.d(TAG, "[APPROVE:1006] 网络诊断版，详细排查网络问题");
         
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -293,6 +293,25 @@ public class MainActivity extends AppCompatActivity {
                     });
                 }
             }).start();
+            
+            // v1.6.6: 启动详细网络诊断
+            appendMessage("\n🔍 启动详细网络诊断...");
+            NetworkDiagnostics.runDiagnostics(this, new NetworkDiagnostics.DiagCallback() {
+                @Override
+                public void onStep(String step, String result) {
+                    runOnUiThread(() -> appendMessage(step + "\n" + result));
+                }
+                
+                @Override
+                public void onComplete(String summary) {
+                    runOnUiThread(() -> appendMessage(summary));
+                }
+                
+                @Override
+                public void onError(String step, String error) {
+                    runOnUiThread(() -> appendMessage("❌ " + step + " 错误: " + error));
+                }
+            });
         }
     }
     
