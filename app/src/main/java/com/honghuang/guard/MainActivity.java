@@ -61,8 +61,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d(TAG, "=== 洪荒守护 v1.6.1 启动 ===");
-        Log.d(TAG, "[APPROVE:1002] RTC直接对接OpenClaw，实时语音交互");
+        Log.d(TAG, "=== 洪荒守护 v1.6.4 启动 ===");
+        Log.d(TAG, "[APPROVE:1004] 扣子RTC直连，无需开放端口");
         
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());

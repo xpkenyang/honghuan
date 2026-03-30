@@ -204,22 +204,29 @@ public class CozeApiManager {
     }
     
     /**
-     * 调用OpenClaw API获取回复
-     * v1.6.3修复：使用Nginx反向代理（80端口转发到5000端口）
+     * 调用扣子智能体API获取回复
+     * v1.6.4方案：使用扣子API，通过扣子平台中转，无需直接连接OpenClaw
+     * 架构：APP → 扣子API → 扣子智能体 → OpenClaw(通过扣子Webhook/插件)
      */
     private void callOpenClawAPI(String message) {
-        // OpenClaw API配置 - 使用Nginx反向代理
-        // Nginx监听80端口，转发到本地5000端口
-        String openclawUrl = "http://101.126.129.138/v1/chat";
-        String openclawKey = "HONGHUANGSAFECODE";
+        // 扣子API配置 - 直接调用扣子智能体
+        // 无需开放端口，扣子平台自动转发到OpenClaw
+        String cozeUrl = "https://api.coze.cn/v3/chat";
+        String cozeToken = "pat_THFgmdD8ezb970n9t1IScBcmslWa4vjfQSDNliOLAmK3A3NWKLIsxwDrK3AtiFin";
         
+        // v1.6.4: 使用扣子智能体API，无需开放端口
         JSONObject requestBody = new JSONObject();
         try {
-            requestBody.put("message", message);
-            requestBody.put("session_id", "rtc_session_" + System.currentTimeMillis());
-            requestBody.put("context", "实时语音对话");
+            requestBody.put("bot_id", BOT_ID);
+            requestBody.put("user_id", "app_user_" + System.currentTimeMillis());
+            requestBody.put("additional_messages", new org.json.JSONArray()
+                .put(new JSONObject()
+                    .put("role", "user")
+                    .put("content", message)
+                    .put("content_type", "text")));
+            requestBody.put("stream", false);
         } catch (JSONException e) {
-            Log.e(TAG, "构建OpenClaw请求失败", e);
+            Log.e(TAG, "构建扣子请求失败", e);
             if (listener != null) {
                 listener.onError("请求构建失败: " + e.getMessage());
             }
@@ -232,8 +239,8 @@ public class CozeApiManager {
         );
         
         Request request = new Request.Builder()
-                .url(openclawUrl)
-                .addHeader("X-OpenClaw-Key", openclawKey)
+                .url(cozeUrl)
+                .addHeader("Authorization", "Bearer " + cozeToken)
                 .addHeader("Content-Type", "application/json")
                 .post(body)
                 .build();
@@ -241,12 +248,9 @@ public class CozeApiManager {
         httpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.e(TAG, "OpenClaw API调用失败", e);
-                // 如果OpenClaw不可用，返回提示信息
+                Log.e(TAG, "扣子API调用失败", e);
                 if (listener != null) {
-                    String errorMsg = "OpenClaw连接失败: " + e.getMessage() + 
-                            "\n请确保OpenClaw服务已启动";
-                    listener.onChatSuccess("🐉 洪荒: " + errorMsg);
+                    listener.onChatSuccess("🐉 洪荒: 网络连接失败，请检查网络后重试");
                 }
             }
             
@@ -257,20 +261,33 @@ public class CozeApiManager {
                         String responseBody = response.body().string();
                         try {
                             JSONObject jsonResponse = new JSONObject(responseBody);
-                            String reply = jsonResponse.optString("reply", "洪荒收到，但回复为空");
+                            // 解析扣子智能体回复
+                            String reply = "洪荒收到";
+                            if (jsonResponse.has("messages")) {
+                                org.json.JSONArray messages = jsonResponse.getJSONArray("messages");
+                                for (int i = 0; i < messages.length(); i++) {
+                                    JSONObject msg = messages.getJSONObject(i);
+                                    if ("assistant".equals(msg.optString("role"))) {
+                                        reply = msg.optString("content", "洪荒收到");
+                                        break;
+                                    }
+                                }
+                            }
                             if (listener != null) {
                                 listener.onChatSuccess("🐉 洪荒: " + reply);
                             }
                         } catch (JSONException e) {
-                            Log.e(TAG, "解析OpenClaw响应失败", e);
+                            Log.e(TAG, "解析扣子响应失败", e);
                             if (listener != null) {
-                                listener.onChatSuccess("🐉 洪荒: 收到消息，但解析响应失败");
+                                listener.onChatSuccess("🐉 洪荒: 收到消息");
                             }
                         }
                     } else {
-                        Log.e(TAG, "OpenClaw API返回错误: " + response.code());
+                        Log.e(TAG, "扣子API返回错误: " + response.code());
+                        String errorBody = response.body().string();
+                        Log.e(TAG, "错误详情: " + errorBody);
                         if (listener != null) {
-                            listener.onChatSuccess("🐉 洪荒: 服务暂时不可用 (" + response.code() + ")");
+                            listener.onChatSuccess("🐉 洪荒: 服务繁忙，请稍后再试 (" + response.code() + ")");
                         }
                     }
                 } finally {
