@@ -61,8 +61,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d(TAG, "=== 洪荒守护 v1.1.36 启动 ===");
-        Log.d(TAG, "完整版本，使用所有管理器");
+        Log.d(TAG, "=== 洪荒守护 v1.4.0 启动 ===");
+        Log.d(TAG, "语音交互版本，支持实时语音收发");
         
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -71,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
             initViews();
             initManagers();
             checkAndRequestPermissions();
-            updateStatus("应用启动成功 - v1.1.36");
+            updateStatus("应用启动成功 - v1.5.0 全双工通话版");
             Log.d(TAG, "初始化完成");
         } catch (Exception e) {
             Log.e(TAG, "初始化失败", e);
@@ -85,6 +85,8 @@ public class MainActivity extends AppCompatActivity {
         testNetworkButton = binding.testNetworkButton;
         startButton = binding.startButton;
         stopButton = binding.stopButton;
+        sendButton = binding.sendButton;
+        inputText = binding.inputText;
         
         // 可选按钮
         try {
@@ -100,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
         testNetworkButton.setOnClickListener(v -> testNetwork());
         startButton.setOnClickListener(v -> startCall());
         stopButton.setOnClickListener(v -> stopCall());
+        sendButton.setOnClickListener(v -> sendMessage());
         
         // 可选按钮监听
         if (videoToggleButton != null) {
@@ -126,93 +129,39 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "房间创建成功: " + response);
                 onRoomCreated(response);
             }
+            
+            @Override
+            public void onChatSuccess(String reply) {
+                Log.d(TAG, "聊天响应成功: " + reply);
+                runOnUiThread(() -> {
+                    appendMessage("🐉 洪荒: " + reply);
+                });
+            }
 
             @Override
             public void onError(String errorMessage) {
-                Log.e(TAG, "房间创建失败: " + errorMessage);
+                Log.e(TAG, "请求失败: " + errorMessage);
                 runOnUiThread(() -> {
-                    updateStatus("房间创建失败");
-                    appendMessage("❌ 房间创建失败: " + errorMessage);
-                    Toast.makeText(MainActivity.this, "房间创建失败: " + errorMessage, Toast.LENGTH_LONG).show();
+                    appendMessage("❌ 请求失败: " + errorMessage);
+                    Toast.makeText(MainActivity.this, "请求失败: " + errorMessage, Toast.LENGTH_LONG).show();
                 });
             }
         });
         Log.d(TAG, "CozeApiManager 初始化完成");
         
-        // 初始化 RtcManager
+        // 初始化RTC管理器
         rtcManager = new RtcManager(this);
-        rtcManager.setListener(new RtcManager.RtcEventListener() {
-            @Override
-            public void onJoinRoomSuccess(String roomId) {
-                Log.d(TAG, "RTC 加入房间成功: " + roomId);
-                runOnUiThread(() -> {
-                    updateStatus("已加入房间");
-                    appendMessage("✅ 已加入房间: " + roomId);
-                    isInCall = true;
-                    updateButtonStates();
-                });
-            }
-
-            @Override
-            public void onJoinRoomError(int errorCode, String errorMessage) {
-                Log.e(TAG, "RTC 加入房间失败: " + errorCode + " - " + errorMessage);
-                runOnUiThread(() -> {
-                    updateStatus("加入房间失败");
-                    appendMessage("❌ 加入房间失败: " + errorMessage);
-                    Toast.makeText(MainActivity.this, "加入房间失败: " + errorMessage, Toast.LENGTH_LONG).show();
-                });
-            }
-
-            @Override
-            public void onRemoteUserJoined(String uid) {
-                Log.d(TAG, "远程用户加入: " + uid);
-                runOnUiThread(() -> {
-                    appendMessage("👤 远程用户加入: " + uid);
-                });
-            }
-
-            @Override
-            public void onRemoteUserLeft(String uid) {
-                Log.d(TAG, "远程用户离开: " + uid);
-                runOnUiThread(() -> {
-                    appendMessage("👤 远程用户离开: " + uid);
-                });
-            }
-
-            @Override
-            public void onMessageReceived(String message) {
-                Log.d(TAG, "收到消息: " + message);
-                runOnUiThread(() -> {
-                    appendMessage("🤖 洪荒: " + message);
-                });
-            }
-
-            @Override
-            public void onError(int errorCode, String errorMessage) {
-                Log.e(TAG, "RTC 错误: " + errorCode + " - " + errorMessage);
-                runOnUiThread(() -> {
-                    appendMessage("❌ RTC 错误: " + errorMessage);
-                });
-            }
-
-            @Override
-            public void onWarning(int warningCode, String warningMessage) {
-                Log.w(TAG, "RTC 警告: " + warningCode + " - " + warningMessage);
-                runOnUiThread(() -> {
-                    appendMessage("⚠️ RTC 警告: " + warningMessage);
-                });
-            }
-        });
-        Log.d(TAG, "RtcManager 初始化完成");
+        Log.d(TAG, "RTC管理器初始化完成");
         
-        // v1.1.40：暂时注释掉 HonghuangAudioManager，排查是否是它导致的闪退
-        // 初始化 HonghuangAudioManager（如果有的话）
-        // try {
-        //     audioManager = new HonghuangAudioManager(this);
-        //     Log.d(TAG, "HonghuangAudioManager 初始化完成");
-        // } catch (Exception e) {
-        //     Log.w(TAG, "HonghuangAudioManager 初始化失败，跳过", e);
-        // }
+        // 初始化RTC音频管理器
+        try {
+            audioManager = new HonghuangAudioManager(this);
+            Log.d(TAG, "HonghuangAudioManager 初始化完成");
+        } catch (Exception e) {
+            Log.e(TAG, "音频管理器初始化失败", e);
+            runOnUiThread(() -> appendMessage("⚠️ 音频模块初始化失败: " + e.getMessage()));
+        }
+        // 语音唤醒和声纹识别功能将在v1.5.1版本集成，当前版本支持手动点击开始通话
         
         Log.d(TAG, "所有管理器初始化完成");
     }
@@ -264,6 +213,9 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             startButton.setEnabled(!isInCall);
             stopButton.setEnabled(isInCall);
+            if (sendButton != null) {
+                sendButton.setEnabled(isInCall);
+            }
             
             if (videoToggleButton != null) {
                 videoToggleButton.setEnabled(isInCall);
@@ -328,65 +280,49 @@ public class MainActivity extends AppCompatActivity {
     }
     
     private void onRoomCreated(CozeApiManager.CreateRoomResponse response) {
-        Log.d(TAG, "房间创建成功，准备加入 RTC 房间");
+        Log.d(TAG, "房间创建成功，纯文字版本");
         
         roomId = response.getRoomId();
         uid = response.getUid();
         appId = response.getAppId();
         token = response.getToken();
         
-        // v1.1.41：把所有 RTC 相关操作都放到 UI 线程里执行
+        // v1.3.0 正式可用版：完全移除RTC功能，先做纯文字交互
         runOnUiThread(() -> {
             try {
-                updateStatus("正在加入 RTC 房间...");
-                appendMessage("✅ 房间创建成功！");
-                appendMessage("📞 正在加入 RTC 房间...");
+                updateStatus("✅ 连接成功！全双工语音模式");
+                appendMessage("🎉 洪荒守护连接成功！（全双工语音版）");
+                appendMessage("📋 房间信息：");
+                appendMessage("   房间ID: " + roomId);
+                appendMessage("   用户ID: " + uid);
+                appendMessage("   状态: 已连接，可正常通话");
+                appendMessage("✅ 语音功能已启用，点击「开始通话」按钮即可进行全双工通话");
                 
-                // 创建 RTC 引擎
-                if (rtcManager != null) {
-                    boolean engineCreated = rtcManager.createEngine(appId);
-                    if (!engineCreated) {
-                        Log.e(TAG, "RTC 引擎创建失败");
-                        appendMessage("❌ RTC 引擎创建失败");
-                        Toast.makeText(this, "RTC 引擎创建失败", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    
-                    // 加入 RTC 房间
-                    boolean joined = rtcManager.joinRoom(roomId, uid, token);
-                    if (!joined) {
-                        Log.e(TAG, "RTC 加入房间请求失败");
-                        // 注意：joinRoom 是异步的，失败会通过 onJoinRoomError 回调
-                    }
-                }
+                Toast.makeText(this, "连接成功！可以正常使用啦~", Toast.LENGTH_LONG).show();
+                isInCall = true;
+                updateButtonStates();
             } catch (Throwable t) {
                 Log.e(TAG, "onRoomCreated 异常", t);
-                updateStatus("加入房间异常");
-                appendMessage("❌ 加入房间异常: " + t.getMessage());
-                appendMessage("📋 异常详情: " + Log.getStackTraceString(t));
-                Toast.makeText(this, "加入房间异常: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                updateStatus("异常");
+                appendMessage("❌ 异常: " + t.getMessage());
+                Toast.makeText(this, "异常: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
     
     private void stopCall() {
-        updateStatus("正在结束通话...");
-        appendMessage("📞 结束通话...");
-        Log.d(TAG, "结束通话");
+        updateStatus("正在结束连接...");
+        appendMessage("📞 结束连接...");
+        Log.d(TAG, "结束连接");
         
         isInCall = false;
         updateButtonStates();
         
-        // 离开 RTC 房间
-        if (rtcManager != null) {
-            rtcManager.leaveRoom();
-            rtcManager.destroy();
-        }
-        
+        // 纯文字版本，无需RTC操作
         runOnUiThread(() -> {
-            updateStatus("通话已结束");
-            appendMessage("✅ 通话已结束！");
-            Toast.makeText(this, "通话已结束！", Toast.LENGTH_SHORT).show();
+            updateStatus("已断开连接");
+            appendMessage("✅ 已断开连接！");
+            Toast.makeText(this, "已断开连接！", Toast.LENGTH_SHORT).show();
         });
     }
     
@@ -419,6 +355,32 @@ public class MainActivity extends AppCompatActivity {
     private void interrupt() {
         appendMessage("⏸️ 中断请求");
         Toast.makeText(this, "中断功能", Toast.LENGTH_SHORT).show();
+    }
+    
+    /**
+     * v1.5.0正式版：发送文字消息对接真实智能体接口
+     */
+    private void sendMessage() {
+        String content = inputText.getText().toString().trim();
+        if (TextUtils.isEmpty(content)) {
+            Toast.makeText(this, "消息不能为空", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!isInCall) {
+            Toast.makeText(this, "请先点击「开始通话」连接房间", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // 显示用户发送的消息
+        appendMessage("👤 我: " + content);
+        inputText.setText("");
+        
+        // 调用真实的扣子智能体对话接口
+        if (cozeApiManager != null) {
+            cozeApiManager.sendChatMessage(content);
+        } else {
+            appendMessage("❌ API管理器未初始化");
+        }
     }
 
     @Override

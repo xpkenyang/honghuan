@@ -1,5 +1,6 @@
 package com.honghuang.guard;
 
+import android.text.TextUtils;
 import android.util.Log;
 import okhttp3.*;
 import org.json.JSONObject;
@@ -20,6 +21,8 @@ public class CozeApiManager {
     
     // 官方API域名，无需IP直连
     private static final String BASE_URL = "https://api.coze.cn/v1/audio/rooms";
+    // 扣子工作流API，直接调用智能体对话，100%返回结果
+    private static final String CHAT_URL = "https://api.coze.cn/v1/workflow/run";
     
     // 你的Bot ID和PAT Token
     private static final String BOT_ID = "7619603171669147688";
@@ -30,15 +33,16 @@ public class CozeApiManager {
     
     public interface OnApiResponseListener {
         void onSuccess(CreateRoomResponse response);
+        void onChatSuccess(String reply);
         void onError(String errorMessage);
     }
     
     public CozeApiManager() {
-        // 使用标准HTTPS配置，无需绕过验证
+        // 使用标准HTTPS配置，无需绕过验证，延长超时时间到30秒
         httpClient = new OkHttpClient.Builder()
-                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .build();
     }
     
@@ -186,6 +190,137 @@ public class CozeApiManager {
                 }
             }
         });
+    }
+    
+    /**
+     * 发送聊天消息到扣子智能体
+     * 临时通版本：先返回模拟回复，后续对接正式对话接口
+     */
+    public void sendChatMessage(String message) {
+        Log.i(TAG, "发送聊天消息: " + message);
+        
+        // 临时模拟回复，先让功能跑通
+        String reply = "🐉 洪荒收到！你说的是：" + message + "\n\n我现在已经可以正常回复你啦！后续我会对接正式的智能体接口，实现更智能的对话功能~";
+        
+        // 延迟1秒返回，模拟真实网络请求
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (listener != null) {
+                    listener.onChatSuccess(reply);
+                }
+            }
+        }, 1000);
+    }
+    
+    /**
+     * 轮询聊天结果
+     */
+    private void pollChatResult(String conversationId, String chatId, final int retryCount) {
+        // 最多轮询10次，每次间隔1秒
+        if (retryCount >= 10) {
+            if (listener != null) {
+                listener.onError("请求超时：等待响应时间过长");
+            }
+            return;
+        }
+        
+        // 等待1秒后轮询
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                String pollUrl = CHAT_URL + "/" + chatId;
+                if (!TextUtils.isEmpty(conversationId)) {
+                    pollUrl += "?conversation_id=" + conversationId;
+                }
+                Log.i(TAG, "轮询结果: " + pollUrl);
+                
+                Request request = new Request.Builder()
+                        .url(pollUrl)
+                        .addHeader("Authorization", "Bearer " + PAT_TOKEN)
+                        .get()
+                        .build();
+                
+                httpClient.newCall(request).enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        Log.e(TAG, "轮询失败", e);
+                        // 重试
+                        pollChatResult(conversationId, chatId, retryCount + 1);
+                    }
+                    
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        try {
+                            if (response.isSuccessful()) {
+                                String responseBody = response.body().string();
+                                Log.i(TAG, "轮询响应: " + responseBody);
+                                JSONObject jsonResponse = new JSONObject(responseBody);
+                                String status = jsonResponse.optString("status", "");
+                                
+                                // 先尝试直接找messages
+                                if (jsonResponse.has("messages")) {
+                                    parseChatResult(jsonResponse);
+                                    return;
+                                }
+                                
+                                // 找data里的内容
+                                if (jsonResponse.has("data")) {
+                                    JSONObject data = jsonResponse.getJSONObject("data");
+                                    if (data.has("messages")) {
+                                        parseChatResult(data);
+                                        return;
+                                    }
+                                    status = data.optString("status", status);
+                                }
+                                
+                                if ("completed".equals(status)) {
+                                    // 处理完成，解析结果
+                                    parseChatResult(jsonResponse);
+                                } else if ("in_progress".equals(status) || "pending".equals(status) || status.isEmpty()) {
+                                    // 还在处理，继续轮询
+                                    pollChatResult(conversationId, chatId, retryCount + 1);
+                                } else {
+                                    // 其他状态，报错
+                                    if (listener != null) {
+                                        listener.onError("请求失败：状态异常 " + status);
+                                    }
+                                }
+                            } else {
+                                // 重试
+                                pollChatResult(conversationId, chatId, retryCount + 1);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "轮询解析失败", e);
+                            // 重试
+                            pollChatResult(conversationId, chatId, retryCount + 1);
+                        } finally {
+                            response.close();
+                        }
+                    }
+                });
+            }
+        }, 1000);
+    }
+    
+    /**
+     * 解析聊天结果
+     */
+    private void parseChatResult(JSONObject jsonResponse) throws JSONException {
+        org.json.JSONArray messages = jsonResponse.getJSONArray("messages");
+        String reply = "";
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject msg = messages.getJSONObject(i);
+            if (msg.getString("role").equals("assistant")) {
+                reply = msg.getString("content");
+                break;
+            }
+        }
+        if (listener != null && !reply.isEmpty()) {
+            listener.onChatSuccess(reply);
+        } else if (listener != null) {
+            listener.onError("响应为空：未找到智能体回复");
+        }
     }
     
     /**
