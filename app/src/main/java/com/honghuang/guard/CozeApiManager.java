@@ -205,12 +205,12 @@ public class CozeApiManager {
     
     /**
      * 调用OpenClaw API获取回复
-     * v1.6.2修复：使用正确的OpenClaw服务器地址
+     * v1.6.3修复：使用Nginx反向代理（80端口转发到5000端口）
      */
     private void callOpenClawAPI(String message) {
-        // OpenClaw API配置 - 使用实际服务器IP
-        // 注意：生产环境应该使用HTTPS和域名，开发测试使用IP
-        String openclawUrl = "http://101.126.129.138:5000/v1/chat";
+        // OpenClaw API配置 - 使用Nginx反向代理
+        // Nginx监听80端口，转发到本地5000端口
+        String openclawUrl = "http://101.126.129.138/v1/chat";
         String openclawKey = "HONGHUANGSAFECODE";
         
         JSONObject requestBody = new JSONObject();
