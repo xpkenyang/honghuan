@@ -47,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
     private CozeApiManager cozeApiManager;
     private RtcManager rtcManager;
     private HonghuangAudioManager audioManager;
+    private VoiceWakeManager voiceWakeManager; // v1.6.5: 语音唤醒管理器
     
     // 房间信息
     private String roomId;
@@ -61,8 +62,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d(TAG, "=== 洪荒守护 v1.6.4 启动 ===");
-        Log.d(TAG, "[APPROVE:1004] 扣子RTC直连，无需开放端口");
+        Log.d(TAG, "=== 洪荒守护 v1.6.5 启动 ===");
+        Log.d(TAG, "[APPROVE:1005] 语音唤醒版，支持关键词唤醒");
         
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -161,7 +162,36 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "音频管理器初始化失败", e);
             runOnUiThread(() -> appendMessage("⚠️ 音频模块初始化失败: " + e.getMessage()));
         }
-        // 语音唤醒和声纹识别功能将在v1.5.1版本集成，当前版本支持手动点击开始通话
+        // v1.6.5: 初始化语音唤醒管理器
+        try {
+            voiceWakeManager = new VoiceWakeManager(this);
+            voiceWakeManager.setListener(new VoiceWakeManager.WakeListener() {
+                @Override
+                public void onWakeUp(String keyword) {
+                    Log.i(TAG, "🎙️ 语音唤醒成功，关键词: " + keyword);
+                    runOnUiThread(() -> {
+                        appendMessage("🎙️ 听到唤醒词: " + keyword);
+                        // 自动开始通话
+                        if (!isInCall) {
+                            startCall();
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String error) {
+                    Log.e(TAG, "语音唤醒错误: " + error);
+                }
+            });
+            
+            // 启动语音唤醒监听
+            if (voiceWakeManager.startListening()) {
+                Log.i(TAG, "✅ 语音唤醒已启动，等待唤醒词...");
+                runOnUiThread(() -> appendMessage("🎙️ 语音唤醒已启动，说'洪荒'或'守护者'唤醒我"));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "语音唤醒初始化失败", e);
+        }
         
         Log.d(TAG, "所有管理器初始化完成");
     }
