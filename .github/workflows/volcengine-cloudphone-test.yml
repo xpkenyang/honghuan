@@ -19,10 +19,15 @@ jobs:
         run: |
           pip install requests
           
-      - name: 构建APK
+      - name: 配置Gradle
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --build-cache
+          ls -la gradle/wrapper/
+          java -version
+          
+      - name: 构建APK
+        run: |
+          ./gradlew assembleDebug --build-cache --stacktrace
           
       - name: 运行火山引擎云手机测试
         env:
