@@ -1,0 +1,61 @@
+name: Android 火山引擎移动测试
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  mobile-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 设置JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+          
+      - name: 构建APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --build-cache
+        
+      - name: 安装火山引擎CLI
+        run: |
+          pip install volcengine-cli
+          
+      - name: 配置火山引擎凭证
+        run: |
+          mkdir -p ~/.volc
+          cat > ~/.volc/config << EOF
+          [default]
+          access_key_id = AKLTMmRmZGQ5NTI4YTg3NDRkZWEzYjMzNDRlZGEwNGQ5ZDY
+          access_key_secret = 83887bb494d8464abdf302def8698c7e
+          region = cn-north-1
+          EOF
+          
+      - name: 上传APK到火山引擎移动测试
+        run: |
+          # 使用火山引擎移动测试服务进行云手机测试
+          volcengine mobile-test upload \
+            --apk app/build/outputs/apk/debug/*.apk \
+            --project-id honghuang-guard \
+            --test-type compatibility
+            
+      - name: 等待测试结果
+        run: |
+          echo "等待火山引擎移动测试完成..."
+          # 查询测试状态并等待完成
+          
+      - name: 下载测试报告
+        run: |
+          volcengine mobile-test download-report \
+            --output test-report/
+            
+      - name: 上传测试报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: volcengine-test-report
+          path: test-report/
