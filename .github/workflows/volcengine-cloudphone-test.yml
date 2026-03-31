@@ -19,15 +19,14 @@ jobs:
         run: |
           pip install requests
           
-      - name: 配置Gradle
-        run: |
-          chmod +x gradlew
-          ls -la gradle/wrapper/
-          java -version
+      - name: 安装Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 8.2
           
       - name: 构建APK
         run: |
-          ./gradlew assembleDebug --build-cache --stacktrace
+          gradle assembleDebug --build-cache --stacktrace
           
       - name: 运行火山引擎云手机测试
         env:
