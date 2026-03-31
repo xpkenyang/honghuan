@@ -26,8 +26,8 @@ jobs:
           
       - name: 运行火山引擎云手机测试
         env:
-          VOLC_ACCESS_KEY_ID: AKLTMmRmZGQ5NTI4YTg3NDRkZWEzYjMzNDRlZGEwNGQ5ZDY
-          VOLC_ACCESS_KEY_SECRET: 83887bb494d8464abdf302def8698c7e
+          VOLC_ACCESS_KEY_ID: ${{ secrets.VOLC_ACCESS_KEY_ID }}
+          VOLC_ACCESS_KEY_SECRET: ${{ secrets.VOLC_ACCESS_KEY_SECRET }}
         run: |
           python3 scripts/volcengine_cloudphone_test.py \
             app/build/outputs/apk/debug/app-debug.apk
