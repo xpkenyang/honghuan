@@ -49,11 +49,11 @@ public class MainActivity extends AppCompatActivity {
     private HonghuangAudioManager audioManager;
     private VoiceWakeManager voiceWakeManager; // v1.6.5: 语音唤醒管理器
     
-    // 房间信息
-    private String roomId;
-    private String uid;
-    private String appId;
-    private String token;
+    // 房间信息 - v1.6.7: 使用火山引擎RTC固定配置
+    private String roomId = RtcConfig.ROOM_ID;
+    private String uid = RtcConfig.USER_ID;
+    private String appId = RtcConfig.VOLC_APP_ID;
+    private String token = RtcConfig.ROOM_TOKEN;
     
     // 状态
     private boolean isInCall = false;
@@ -62,8 +62,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Log.d(TAG, "=== 洪荒守护 v1.6.6 启动 ===");
-        Log.d(TAG, "[APPROVE:1006] 网络诊断版，详细排查网络问题");
+        Log.d(TAG, "=== 洪荒守护 v" + RtcConfig.APP_VERSION + " 启动 ===");
+        Log.d(TAG, "[APPROVE:1007] " + RtcConfig.VERSION_DESC + "，火山引擎RTC直连扣子智能体");
         
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -316,47 +316,117 @@ public class MainActivity extends AppCompatActivity {
     }
     
     private void startCall() {
-        updateStatus("正在创建房间...");
-        appendMessage("📞 开始创建房间...");
-        Log.d(TAG, "开始通话");
+        updateStatus("正在连接火山引擎RTC...");
+        appendMessage("📞 开始连接火山引擎RTC...");
+        appendMessage("📋 使用配置：");
+        appendMessage("   房间ID: " + RtcConfig.ROOM_ID);
+        appendMessage("   用户ID: " + RtcConfig.USER_ID);
+        appendMessage("   AppID: " + RtcConfig.VOLC_APP_ID);
+        Log.d(TAG, "开始通话 - v1.6.7火山引擎RTC直连版");
         
-        if (cozeApiManager != null) {
-            cozeApiManager.createRoom();
-        } else {
-            appendMessage("❌ CozeApiManager 未初始化");
-            Toast.makeText(this, "CozeApiManager 未初始化", Toast.LENGTH_SHORT).show();
+        // v1.6.7: 直接使用配置的RTC信息，不再调用扣子API创建房间
+        joinRtcRoom();
+    }
+    
+    /**
+     * v1.6.7: 加入火山引擎RTC房间
+     * 使用固定配置连接扣子智能体
+     */
+    private void joinRtcRoom() {
+        if (rtcManager == null) {
+            appendMessage("❌ RTC管理器未初始化");
+            return;
+        }
+        
+        // 1. 创建RTC引擎
+        appendMessage("🔄 创建RTC引擎...");
+        boolean engineCreated = rtcManager.createEngine(appId);
+        if (!engineCreated) {
+            appendMessage("❌ RTC引擎创建失败");
+            updateStatus("RTC引擎创建失败");
+            return;
+        }
+        appendMessage("✅ RTC引擎创建成功");
+        
+        // 2. 设置视频视图（如果有）
+        if (localVideoView != null) {
+            rtcManager.setLocalVideoView(localVideoView);
+        }
+        
+        // 3. 加入房间
+        appendMessage("🔄 加入RTC房间...");
+        rtcManager.setListener(new RtcManager.RtcEventListener() {
+            @Override
+            public void onJoinRoomSuccess(String roomId) {
+                runOnUiThread(() -> {
+                    appendMessage("✅ 成功加入房间: " + roomId);
+                    appendMessage("🎉 洪荒守护已连接！可以开始对话了");
+                    appendMessage("📢 对着手机说话，洪荒会实时回应");
+                    updateStatus("✅ 已连接 - 全双工语音模式");
+                    isInCall = true;
+                    updateButtonStates();
+                    Toast.makeText(MainActivity.this, "连接成功！开始对话吧~", Toast.LENGTH_LONG).show();
+                });
+            }
+            
+            @Override
+            public void onJoinRoomError(int errorCode, String errorMessage) {
+                runOnUiThread(() -> {
+                    appendMessage("❌ 加入房间失败: " + errorMessage);
+                    updateStatus("连接失败: " + errorMessage);
+                    isInCall = false;
+                    updateButtonStates();
+                });
+            }
+            
+            @Override
+            public void onRemoteUserJoined(String uid) {
+                runOnUiThread(() -> {
+                    appendMessage("🤖 洪荒智能体已加入房间");
+                    if (remoteVideoView != null) {
+                        rtcManager.setRemoteVideoView(uid, remoteVideoView);
+                    }
+                });
+            }
+            
+            @Override
+            public void onRemoteUserLeft(String uid) {
+                runOnUiThread(() -> appendMessage("🤖 洪荒智能体已离开房间"));
+            }
+            
+            @Override
+            public void onMessageReceived(String message) {
+                runOnUiThread(() -> appendMessage("📨 收到消息: " + message));
+            }
+            
+            @Override
+            public void onError(int errorCode, String errorMessage) {
+                runOnUiThread(() -> {
+                    appendMessage("❌ RTC错误: " + errorMessage);
+                    updateStatus("RTC错误: " + errorMessage);
+                });
+            }
+            
+            @Override
+            public void onWarning(int warningCode, String warningMessage) {
+                runOnUiThread(() -> appendMessage("⚠️ RTC警告: " + warningMessage));
+            }
+        });
+        
+        boolean joined = rtcManager.joinRoom(roomId, uid, token);
+        if (!joined) {
+            appendMessage("❌ 加入房间调用失败");
+            updateStatus("加入房间失败");
         }
     }
     
+    /**
+     * v1.6.7: 保留此方法但不再使用
+     * 仅作为兼容保留
+     */
     private void onRoomCreated(CozeApiManager.CreateRoomResponse response) {
-        Log.d(TAG, "房间创建成功，纯文字版本");
-        
-        roomId = response.getRoomId();
-        uid = response.getUid();
-        appId = response.getAppId();
-        token = response.getToken();
-        
-        // v1.3.0 正式可用版：完全移除RTC功能，先做纯文字交互
-        runOnUiThread(() -> {
-            try {
-                updateStatus("✅ 连接成功！全双工语音模式");
-                appendMessage("🎉 洪荒守护连接成功！（全双工语音版）");
-                appendMessage("📋 房间信息：");
-                appendMessage("   房间ID: " + roomId);
-                appendMessage("   用户ID: " + uid);
-                appendMessage("   状态: 已连接，可正常通话");
-                appendMessage("✅ 语音功能已启用，点击「开始通话」按钮即可进行全双工通话");
-                
-                Toast.makeText(this, "连接成功！可以正常使用啦~", Toast.LENGTH_LONG).show();
-                isInCall = true;
-                updateButtonStates();
-            } catch (Throwable t) {
-                Log.e(TAG, "onRoomCreated 异常", t);
-                updateStatus("异常");
-                appendMessage("❌ 异常: " + t.getMessage());
-                Toast.makeText(this, "异常: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
+        // v1.6.7: 不再通过扣子API创建房间，使用固定配置
+        Log.d(TAG, "onRoomCreated已弃用，使用RtcConfig固定配置");
     }
     
     private void stopCall() {
@@ -367,7 +437,13 @@ public class MainActivity extends AppCompatActivity {
         isInCall = false;
         updateButtonStates();
         
-        // 纯文字版本，无需RTC操作
+        // v1.6.7: 停止RTC连接
+        if (rtcManager != null) {
+            rtcManager.leaveRoom();
+            rtcManager.destroy();
+            appendMessage("✅ RTC连接已断开");
+        }
+        
         runOnUiThread(() -> {
             updateStatus("已断开连接");
             appendMessage("✅ 已断开连接！");
