@@ -1,0 +1,49 @@
+name: Android 火山引擎云手机测试
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  cloudphone-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 设置Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: 安装依赖
+        run: |
+          pip install requests
+          
+      - name: 构建APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --build-cache
+          
+      - name: 运行火山引擎云手机测试
+        env:
+          VOLC_ACCESS_KEY_ID: AKLTMmRmZGQ5NTI4YTg3NDRkZWEzYjMzNDRlZGEwNGQ5ZDY
+          VOLC_ACCESS_KEY_SECRET: 83887bb494d8464abdf302def8698c7e
+        run: |
+          python3 scripts/volcengine_cloudphone_test.py \
+            app/build/outputs/apk/debug/app-debug.apk
+          
+      - name: 上传测试报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/test-reports/
+          
+      - name: 检查结果
+        run: |
+          if [ -f app/build/test-reports/volcengine-test-report.json ]; then
+            echo "✅ 测试报告已生成"
+            cat app/build/test-reports/volcengine-test-report.json
+          else
+            echo "❌ 测试报告未生成"
+            exit 1
+          fi
