@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private String roomId = RtcConfig.ROOM_ID;
     private String uid = RtcConfig.USER_ID;
     private String appId = RtcConfig.VOLC_APP_ID;
-    private String token = RtcConfig.ROOM_TOKEN;
+    private String token = RtcConfig.USER_TOKEN;
     
     // 状态
     private boolean isInCall = false;

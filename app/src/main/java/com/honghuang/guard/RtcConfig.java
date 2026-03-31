@@ -29,11 +29,18 @@ public class RtcConfig {
     public static final String USER_ID = "Huoshan01";
     
     /**
-     * 加入房间的Token
+     * 用户端加入房间的Token (Huoshan01)
      * 由火山引擎生成，有效期至 2026-04-07 21:39
      * 注意：Token会过期，需要定期更新
      */
-    public static final String ROOM_TOKEN = "00169ca70bc81235a017632e1e3SQAMpLcBgc7LaQEJ1WkKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAAABCdVpAQABCdVpAgABCdVpAwABCdVpBAAABCdVpBQABCdVpIAAAdhKwnqjuOU+HHt0VVxbfC5LcAAD+viPXcpYjOOEB1Ng==";
+    public static final String USER_TOKEN = "00169ca70bc81235a017632e1e3SQAMpLcBgc7LaQEJ1WkKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAAABCdVpAQABCdVpAgABCdVpAwABCdVpBAAABCdVpBQABCdVpIAAAdhKwnqjuOU+HHt0VVxbfC5LcAAD+viPXcpYjOOEB1Ng==";
+    
+    /**
+     * AI端加入房间的Token (ChatBot01)
+     * 由火山引擎生成
+     * 注意：Token会过期，需要定期更新
+     */
+    public static final String AI_TOKEN = "00169ca70bc81235a017632e1e3SQC9EaYAPdDLab0K1WkKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAAC9CtVpAQC9CtVpAgC9CtVpAwC9CtVpBAC9CtVpBQC9CtVpIABqPHhvAQRNH2w1ZdLmH0l8PR50d0p0Vlfqjb/PY+WzYg==";
     
     // ========== 扣子智能体配置 ==========
     
