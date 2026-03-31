@@ -12,9 +12,9 @@ public class RtcConfig {
     
     /**
      * 火山引擎AppId
-     * 从火山引擎控制台获取
+     * 实时对话式AI应用 - 用于AI音视频互动方案
      */
-    public static final String VOLC_APP_ID = "671221aa298a540183df32d9";
+    public static final String VOLC_APP_ID = "69ca70bc81235a017632e1e3";
     
     /**
      * RTC房间ID
@@ -30,10 +30,10 @@ public class RtcConfig {
     
     /**
      * 加入房间的Token
-     * 由火山引擎生成，有过期时间
+     * 由火山引擎生成，有效期至 2026-04-07 21:22
      * 注意：Token会过期，需要定期更新
      */
-    public static final String ROOM_TOKEN = "00169ca70bc81235a017632e1e3SQB8dMsFBpnLaYbT1GkKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAACG09RpAQCG09RpAgCG09RpAwCG09RpBACG09RpBQCG09RpIADxtBpvK0CStMOZfwuYbJ7RUnNfQN5Bdt9OxQBz3QRl/w==";
+    public static final String ROOM_TOKEN = "00169ca70bc81235a017632e1e3SQBNiKsBlcrLaRUF1WkKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAAVBdVpAQAVBdVpAgAVBdVpAwAVBdVpBAQAVBdVpBQAVBdVpIAB6HZIl3sGv3/g7U+u2GokaeptF+rbAcTKxE0euRI3GKQ==";
     
     // ========== 扣子智能体配置 ==========
     
