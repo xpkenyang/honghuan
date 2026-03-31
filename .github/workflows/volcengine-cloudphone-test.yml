@@ -19,14 +19,12 @@ jobs:
         run: |
           pip install requests
           
-      - name: 安装Gradle
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: 8.2
+      - name: 授予Gradle执行权限
+        run: chmod +x gradlew
           
       - name: 构建APK
         run: |
-          gradle assembleDebug --build-cache --stacktrace
+          ./gradlew assembleDebug --build-cache --stacktrace
           
       - name: 运行火山引擎云手机测试
         env:
