@@ -30,10 +30,10 @@ public class RtcConfig {
     
     /**
      * 加入房间的Token
-     * 由火山引擎生成，有效期至 2026-04-07 21:22
+     * 由火山引擎生成，有效期至 2026-04-07 21:39
      * 注意：Token会过期，需要定期更新
      */
-    public static final String ROOM_TOKEN = "00169ca70bc81235a017632e1e3SQBNiKsBlcrLaRUF1WkKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAAVBdVpAQAVBdVpAgAVBdVpAwAVBdVpBAQAVBdVpBQAVBdVpIAB6HZIl3sGv3/g7U+u2GokaeptF+rbAcTKxE0euRI3GKQ==";
+    public static final String ROOM_TOKEN = "00169ca70bc81235a017632e1e3SQAMpLcBgc7LaQEJ1WkKAENoYXRSb29tMDEJAEh1b3NoYW4wMQYAAAABCdVpAQABCdVpAgABCdVpAwABCdVpBAAABCdVpBQABCdVpIAAAdhKwnqjuOU+HHt0VVxbfC5LcAAD+viPXcpYjOOEB1Ng==";
     
     // ========== 扣子智能体配置 ==========
     
