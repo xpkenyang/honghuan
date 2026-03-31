@@ -1,0 +1,132 @@
+// 测试报告审核校验 - 硬限制机制
+// 未经测试报告审核的APK无法打包
+
+def testReportFile = file("${project.buildDir}/test-reports/volcengine-test-report.json")
+def approvalLogFile = file("${project.rootDir}/approval_log.md")
+
+task checkTestReport {
+    description = '校验火山引擎移动测试报告'
+    group = 'verification'
+    
+    doFirst {
+        println "═══════════════════════════════════════════"
+        println "🔍 测试报告审核校验"
+        println "═══════════════════════════════════════════"
+        
+        // 检查1: 测试报告文件是否存在
+        if (!testReportFile.exists()) {
+            throw new GradleException(
+                "❌ 测试报告缺失\n" +
+                "请执行以下步骤:\n" +
+                "1. 提交代码触发GitHub Actions\n" +
+                "2. 等待火山引擎移动测试完成\n" +
+                "3. 下载测试报告到: ${testReportFile}\n" +
+                "4. 哥审核通过后重新打包"
+            )
+        }
+        
+        // 检查2: 测试报告是否通过
+        def reportContent = testReportFile.text
+        def report = new groovy.json.JsonSlurper().parseText(reportContent)
+        
+        if (report.overall_result != "PASS") {
+            throw new GradleException(
+                "❌ 测试未通过\n" +
+                "测试结果: ${report.overall_result}\n" +
+                "失败项: ${report.failures?.join(', ')}\n" +
+                "请修复问题后重新测试"
+            )
+        }
+        
+        // 检查3: 测试报告是否在有效期内（7天）
+        def testTime = report.test_timestamp as Long
+        def now = System.currentTimeMillis()
+        def daysOld = (now - testTime) / (1000 * 60 * 60 * 24)
+        
+        if (daysOld > 7) {
+            throw new GradleException(
+                "❌ 测试报告已过期 (${daysOld}天前)\n" +
+                "测试报告有效期为7天，请重新执行测试"
+            )
+        }
+        
+        // 检查4: 哥是否审核批准
+        if (!approvalLogFile.exists()) {
+            throw new GradleException(
+                "❌ 审批日志缺失\n" +
+                "请在approval_log.md中记录审批信息"
+            )
+        }
+        
+        def approvalContent = approvalLogFile.text
+        def versionName = android.defaultConfig.versionName
+        def hasApproval = approvalContent.contains(versionName) && 
+                         approvalContent.contains("测试报告审核通过")
+        
+        if (!hasApproval) {
+            throw new GradleException(
+                "❌ 未经哥审核批准\n" +
+                "当前版本: ${versionName}\n" +
+                "请提交测试报告给哥审核\n" +
+                "审核通过后在approval_log.md记录"
+            )
+        }
+        
+        println "✅ 测试报告校验通过"
+        println "   版本: ${versionName}"
+        println "   测试时间: ${new Date(testTime)}"
+        println "   测试天数: ${daysOld}天"
+        println "   审批状态: 已批准"
+        println "═══════════════════════════════════════════"
+    }
+}
+
+// 打包前强制校验
+tasks.whenTaskAdded { task ->
+    if (task.name == 'assembleDebug' || task.name == 'assembleRelease') {
+        task.dependsOn checkTestReport
+    }
+}
+
+// 快捷任务: 生成测试报告模板
+task generateTestReportTemplate {
+    description = '生成测试报告提交模板'
+    group = 'verification'
+    
+    doLast {
+        def template = """
+## 测试报告审核申请
+
+**版本**: ${android.defaultConfig.versionName}
+**版本Code**: ${android.defaultConfig.versionCode}
+**申请时间**: ${new Date()}
+
+### 测试环境
+- 测试服务: 火山引擎移动测试
+- 设备型号: [待填写]
+- 系统版本: [待填写]
+
+### 测试结果
+- [ ] 安装测试通过
+- [ ] 启动测试通过
+- [ ] 功能测试通过
+- [ ] 性能测试通过
+- [ ] 稳定性测试通过
+
+### 测试报告文件
+- 路径: app/build/test-reports/volcengine-test-report.json
+- 下载: [GitHub Actions Artifact]
+
+### 审批记录
+| 审批ID | 审核人 | 审核时间 | 审核结果 | 备注 |
+|--------|--------|----------|----------|------|
+| [待填写] | 哥 | [待填写] | [待填写] | [待填写] |
+
+---
+**哥审核通过后，请在approval_log.md记录审批ID**
+"""
+        
+        file("${project.rootDir}/TEST_REPORT_TEMPLATE.md").text = template
+        println "✅ 测试报告模板已生成: TEST_REPORT_TEMPLATE.md"
+    }
+}

@@ -3,6 +3,21 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      test_type:
+        description: '测试类型'
+        required: true
+        default: 'compatibility'
+        type: choice
+        options:
+          - compatibility
+          - functional
+          - performance
+      device_model:
+        description: '设备型号'
+        required: true
+        default: 'all'
+        type: string
 
 jobs:
   mobile-test:

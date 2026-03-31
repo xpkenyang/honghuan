@@ -2,6 +2,9 @@ plugins {
     id 'com.android.application' version '8.2.0'
 }
 
+// 引入测试报告校验机制
+apply from: 'test-verification.gradle'
+
 // 审批校验任务：构建前校验所有代码变更都已获得哥的批准
 task checkApproval {
     enabled = false // 临时禁用，优先打包交付，后续修复兼容问题
