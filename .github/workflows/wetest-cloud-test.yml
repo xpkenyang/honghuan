@@ -1,0 +1,76 @@
+name: Android 腾讯WeTest云测
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  wetest-cloud-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 设置Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: 安装依赖
+        run: |
+          pip install requests
+          
+      - name: 设置JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: 配置国内镜像源
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle << 'EOF'
+          allprojects {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/public/' }
+                  maven { url 'https://maven.aliyun.com/repository/google/' }
+                  maven { url 'https://artifact.bytedance.com/repository/Volcengine/' }
+              }
+          }
+          EOF
+          
+      - name: 授予Gradle执行权限
+        run: chmod +x gradlew
+          
+      - name: 构建APK
+        run: |
+          ./gradlew assembleDebug --build-cache --stacktrace
+          
+      - name: 运行腾讯WeTest云测
+        env:
+          WETEST_SECRET_ID: ${{ secrets.WETEST_SECRET_ID }}
+          WETEST_SECRET_KEY: ${{ secrets.WETEST_SECRET_KEY }}
+        run: |
+          echo "🚀 开始腾讯WeTest云测..."
+          python3 scripts/wetest_cloud_test.py \
+            app/build/outputs/apk/debug/app-debug.apk
+          
+      - name: 上传测试报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: wetest-test-report
+          path: app/build/test-reports/wetest-report.json
+          
+      - name: 检查结果
+        run: |
+          if [ -f app/build/test-reports/wetest-report.json ]; then
+            echo "✅ 腾讯WeTest报告已生成"
+            cat app/build/test-reports/wetest-report.json
+          else
+            echo "⚠️ 报告未生成，查看日志"
+          fi
+          
+      - name: 上传构建好的APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: honghuang-guard-apk
+          path: app/build/outputs/apk/debug/*.apk
